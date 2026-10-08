@@ -111,6 +111,12 @@ app/src/test/         unit tests (JUnit + Robolectric, mock HTTP servers)
 
 The Java package is `com.natestechstuff.jarvis` (the project's original codename); the app id is `com.natestechstuff.orbit`.
 
+## Support
+
+NTS Orbit is free. If it's useful to you, you can support development here:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/natestechstuff)
+
 ## Contact
 
 Made by **Nate's Tech Stuff**: [natestechstuff.com](https://natestechstuff.com) · [info@natestechstuff.com](mailto:info@natestechstuff.com)
