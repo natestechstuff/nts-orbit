@@ -2,7 +2,7 @@
 
 An AI assistant for Android that runs **on your phone** or talks to **your own AI server**. No accounts, no cloud, no tracking. Made by **Nate's Tech Stuff**.
 
-[![License: NTS Orbit License (source-available)](https://img.shields.io/badge/license-source--available-blue)](LICENSE)
+[![License: NTS Orbit License (source-available)](https://img.shields.io/badge/license-source--available-blue)](LICENSE) [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/kGDcJShcFZ)
 
 **Free to download and use. Source-available:** the code is here to read for reference, but it isn't open source. Copying, modifying or redistributing it isn't allowed without permission (see [License](#license)).
 
@@ -116,6 +116,10 @@ The Java package is `com.natestechstuff.jarvis` (the project's original codename
 NTS Orbit is free. If it's useful to you, you can support development here:
 
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/natestechstuff)
+
+## Community
+
+Join the **Orbit Official Discord** for downloads, help, bug reports and early updates: **[discord.gg/kGDcJShcFZ](https://discord.gg/kGDcJShcFZ)**
 
 ## Contact
 
