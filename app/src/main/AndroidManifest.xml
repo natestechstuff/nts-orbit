@@ -37,6 +37,7 @@
     </queries>
 
     <application
+        android:name=".OrbitApp"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
@@ -66,6 +67,20 @@
             android:name=".SettingsActivity"
             android:exported="false"
             android:label="@string/settings" />
+
+        <!-- Premium: enter a key (checked offline) -->
+        <activity
+            android:name=".PremiumActivity"
+            android:exported="false"
+            android:label="Premium"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Pro settings (only opens while a key is unlocked) -->
+        <activity
+            android:name=".ProMenuActivity"
+            android:exported="false"
+            android:label="Pro settings"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".ServerSettingsActivity"

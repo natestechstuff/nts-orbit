@@ -46,7 +46,7 @@ public class MicButton extends View {
     public int getState() { return state; }
     public void setLevel(float l) { level = Math.max(0f, Math.min(1f, l)); }
 
-    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); clock.start(); }
+    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); if (!Dev.ON || Dev.animations(getContext())) clock.start(); }   // dev: animations off
     @Override protected void onDetachedFromWindow() { clock.cancel(); super.onDetachedFromWindow(); }
 
     @Override

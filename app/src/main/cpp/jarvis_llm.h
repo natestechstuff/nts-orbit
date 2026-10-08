@@ -69,7 +69,9 @@ public:
     Engine & operator=(const Engine &) = delete;
 
     // Loads a GGUF file. n_threads <= 0 picks a sensible default. Returns "" or an error.
-    std::string load(const std::string & path, int n_ctx, int n_threads);
+    std::string load(const std::string & path, int n_ctx, int n_threads, int n_batch = 512);
+    // dev build: the GGUF's metadata as "key = value" lines
+    std::string metadata() const;
     void unload();
     bool loaded() const { return ctx_ != nullptr; }
 

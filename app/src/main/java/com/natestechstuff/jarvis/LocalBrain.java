@@ -22,6 +22,8 @@ import java.util.concurrent.Executors;
 public final class LocalBrain {
     public static final class Stats {
         public int promptTokens, reusedTokens, genTokens, droppedTurns;
+        /** Pro: tokens spent inside <think></think> (part of genTokens). */
+        public int thinkTokens;
         public double promptMs, genMs;
         public boolean stopped, hitLimit;
         public double tokensPerSec() { return genMs > 0 ? genTokens * 1000.0 / genMs : 0; }
@@ -36,6 +38,8 @@ public final class LocalBrain {
         void onPiece(String text);                 // main thread, whole UTF-8 characters
         void onDone(String reply, Stats stats);    // main thread
         void onError(String error);                // main thread
+        /** Pro only: a piece of the model's thought process (<think>…</think>), main thread. */
+        default void onThinking(String text) {}
     }
 
     public static final class Turn {
@@ -80,11 +84,12 @@ public final class LocalBrain {
         final Prefs p = new Prefs(app);
         final String path = p.modelPath();
         final int ctx = p.contextSize(), threads = p.threads();
+        final int batch = Dev.ON ? Dev.batch(app) : 512;
         if (path.isEmpty() || !new File(path).exists()) {
             post(l, null, "No model picked yet. Settings → My model → pick a .gguf file.");
             return;
         }
-        final String k = key(path, ctx, threads);
+        final String k = Dev.ON ? key(path, ctx, threads) + "|" + batch : key(path, ctx, threads);
         if (k.equals(loadedKey)) { post(l, description, null); return; }
         loading = true;
         worker.execute(() -> {
@@ -94,7 +99,8 @@ public final class LocalBrain {
                 if (!k.equals(loadedKey)) {
                     loadedKey = null;
                     prewarmedSystem = null;
-                    err = LlamaBridge.nativeLoad(handle, path, ctx, threads);
+                    err = Dev.ON ? LlamaBridge.nativeLoad2(handle, path, ctx, threads, batch)
+                            : LlamaBridge.nativeLoad(handle, path, ctx, threads);
                     if (err == null || err.isEmpty()) {
                         err = null;
                         loadedKey = k;
@@ -118,6 +124,14 @@ public final class LocalBrain {
             if (handle != 0) LlamaBridge.nativeUnload(handle);
             loadedKey = null;
             description = "";
+        });
+    }
+
+    /** Pro: the loaded GGUF's metadata ("key = value" lines), on the main thread. */
+    public void metadata(java.util.function.Consumer<String> out) {
+        worker.execute(() -> {
+            String m = handle != 0 && loadedKey != null ? LlamaBridge.nativeMeta(handle) : "";
+            main.post(() -> out.accept(m == null || m.isEmpty() ? "No model in memory. Load it first." : m));
         });
     }
 
@@ -166,6 +180,7 @@ public final class LocalBrain {
     }
 
     private void run(Prefs p, List<Turn> history, String systemOverride, float tempOverride, KeepGoing keepGoing, GenListener l) {
+        if (Dev.ON) { runDev(p, history, systemOverride, tempOverride, keepGoing, l); return; }
         generating = true;
         final String system = systemOverride != null ? systemOverride : systemPrompt(app, p);
         final float temp = tempOverride >= 0 ? tempOverride : p.temperature();
@@ -194,6 +209,105 @@ public final class LocalBrain {
             main.post(() -> {
                 if (e != null && reply.length() == 0) l.onError(e);
                 else l.onDone(reply.toString().trim(), st);
+            });
+        });
+    }
+
+    /**
+     * Pro: the same generation with every Pro knob (sampling, seed, stop strings, thinking).
+     * <think>…</think> never reaches the answer: it goes to onThinking() (and the thought panel) instead.
+     */
+    private void runDev(Prefs p, List<Turn> history, String systemOverride, float tempOverride, KeepGoing keepGoing, GenListener l) {
+        generating = true;
+        String sys = systemOverride != null ? systemOverride : systemPrompt(app, p);
+        sys = Dev.filterToolPrompt(app, sys);
+        final boolean prewarm = keepGoing != null && history.isEmpty();
+        final boolean force = Dev.forceThinking(app) && !prewarm;
+        final String sysBase = sys;
+        final String system = force ? sys + "\n\n" + Dev.FORCE_THINK_PROMPT : sys;
+        final float temp = tempOverride >= 0 ? tempOverride : p.temperature();
+        final int topK = Dev.topK(app), repN = Dev.repeatLastN(app), maxThink = Dev.maxThinkTokens(app);
+        final float topP = Dev.topP(app), minP = Dev.minP(app), rep = Dev.repeatPenalty(app);
+        final long seed = Dev.seed(app);
+        final List<String> stops = Dev.stops(app);
+        final int maxTokens = p.maxTokens();
+        worker.execute(() -> {
+            List<String> roles = new ArrayList<>(), contents = new ArrayList<>();
+            roles.add("system"); contents.add(system);
+            for (Turn t : history) { roles.add(t.role); contents.add(t.content); }
+            String[] ra = roles.toArray(new String[0]), ca = contents.toArray(new String[0]);
+            String params = String.format(Locale.US, "temp %.2f · top-k %d · top-p %.2f · min-p %.2f · repeat %.2f/%d · seed %s · max %d · ctx %d · threads %d · batch %d%s%s",
+                    temp, topK, topP, minP, rep, repN, seed < 0 ? "random" : String.valueOf(seed), maxTokens, p.contextSize(), p.threads(), Dev.batch(app),
+                    stops.isEmpty() ? "" : " · stops " + stops.size(), force ? " · force-think" : "");
+            if (!prewarm) { Dev.lastPrompt = Dev.cap(Dev.chatml(ra, ca)); Dev.lastParams = params; }
+            final StringBuilder raw = new StringBuilder(), visible = new StringBuilder();
+            final ServerClient.ThinkFilter tf = new ServerClient.ThinkFilter();
+            final boolean[] earlyStop = {false}, thinkCapped = {false}, stopString = {false};
+            final int[] thinkToks = {0};
+            LlamaBridge.PieceCallback cb = bytes -> {
+                String piece = new String(bytes, StandardCharsets.UTF_8);
+                raw.append(piece);
+                String vis = tf.push(piece);
+                String th = tf.takeThought();
+                if (!th.isEmpty() || (tf.inThink() && vis.isEmpty())) {
+                    thinkToks[0]++;
+                    if (!th.isEmpty()) main.post(() -> l.onThinking(th));
+                }
+                if (!vis.isEmpty()) {
+                    visible.append(vis);
+                    main.post(() -> l.onPiece(vis));
+                }
+                for (String s : stops) if (visible.indexOf(s) >= 0) { stopString[0] = true; earlyStop[0] = true; return false; }
+                if (maxThink > 0 && tf.inThink() && thinkToks[0] >= maxThink) { thinkCapped[0] = true; earlyStop[0] = true; return false; }
+                if (keepGoing != null && !keepGoing.test(visible.toString())) { earlyStop[0] = true; return false; }
+                return true;
+            };
+            String[] err = new String[1];
+            double[] r = LlamaBridge.nativeGenerate2(handle, ra, ca, maxTokens, temp, topK, topP, minP, rep, repN, seed, cb, err);
+            if (thinkCapped[0] && err[0] == null) {
+                // thinking ran past "max thinking tokens": answer now, without thinking
+                main.post(() -> l.onThinking("\n… (thinking cut at " + maxThink + " tokens)\n"));
+                raw.append("\n[thinking cut at ").append(maxThink).append(" tokens → answering without thinking]\n");
+                ca[0] = sysBase + "\n\nDo not think out loud. Answer directly. /no_think";
+                final ServerClient.ThinkFilter tf2 = new ServerClient.ThinkFilter();
+                earlyStop[0] = false;
+                double[] r2 = LlamaBridge.nativeGenerate2(handle, ra, ca, maxTokens, temp, topK, topP, minP, rep, repN, seed, bytes -> {
+                    String piece = new String(bytes, StandardCharsets.UTF_8);
+                    raw.append(piece);
+                    String vis = tf2.push(piece);
+                    tf2.takeThought();
+                    if (!vis.isEmpty()) { visible.append(vis); main.post(() -> l.onPiece(vis)); }
+                    for (String s : stops) if (visible.indexOf(s) >= 0) { stopString[0] = true; earlyStop[0] = true; return false; }
+                    if (keepGoing != null && !keepGoing.test(visible.toString())) { earlyStop[0] = true; return false; }
+                    return true;
+                }, err);
+                for (int k = 0; k < 5; k++) r[k] += r2[k];
+                r[5] = r2[5]; r[6] = r2[6];
+                String tail2 = tf2.finish();
+                if (!tail2.isEmpty()) { visible.append(tail2); main.post(() -> l.onPiece(tail2)); }
+            } else {
+                String tail = tf.finish();
+                if (!tail.isEmpty()) { visible.append(tail); main.post(() -> l.onPiece(tail)); }
+            }
+            String reply = visible.toString();
+            if (stopString[0]) for (String s : stops) { int k = reply.indexOf(s); if (k >= 0) reply = reply.substring(0, k); }
+            final Stats st = new Stats();
+            st.promptTokens = (int) r[0]; st.reusedTokens = (int) r[1]; st.genTokens = (int) r[2];
+            st.promptMs = r[3]; st.genMs = r[4]; st.stopped = r[5] > 0 && !earlyStop[0]; st.hitLimit = r[6] > 0; st.droppedTurns = (int) r[7];
+            st.thinkTokens = thinkToks[0];
+            if (!prewarm) {
+                lastStats = st;
+                Dev.lastRaw = Dev.cap(raw.toString());
+                Dev.lastStats = String.format(Locale.US, "prompt %d tok (%d reused) in %.0f ms · gen %d tok in %.0f ms = %.1f tok/s · think %d tok%s%s",
+                        st.promptTokens, st.reusedTokens, st.promptMs, st.genTokens, st.genMs, st.tokensPerSec(), st.thinkTokens,
+                        st.hitLimit ? " · hit max tokens" : "", st.droppedTurns > 0 ? " · dropped " + st.droppedTurns + " old turns" : "");
+            }
+            generating = false;
+            final String e = err[0];
+            final String out = reply;
+            main.post(() -> {
+                if (e != null && out.isEmpty()) l.onError(e);
+                else l.onDone(out.trim(), st);
             });
         });
     }

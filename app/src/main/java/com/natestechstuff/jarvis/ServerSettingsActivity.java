@@ -47,6 +47,11 @@ public class ServerSettingsActivity extends Activity {
     private String editId = "", editType = ServerClient.AUTO, editDetected = "";
 
     @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(Dev.ON ? Dev.wrap(base) : base);   // Pro: Pro font size
+    }
+
+    @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         store = ServerStore.get(this);

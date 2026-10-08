@@ -74,9 +74,15 @@ public class MainActivity extends Activity implements ChatStore.Listener {
     private boolean pendingTalk;
 
     @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(Dev.ON ? Dev.wrap(base) : base);   // Pro: Pro font size
+    }
+
+    @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = new Prefs(this);
+        if (Dev.ON) { Dev.applyTheme(this); devFontScale = Dev.fontScale(this); }
         store = ChatStore.get(this);
         speaker = Speaker.get(this);
         brain = LocalBrain.get(this);
@@ -91,9 +97,16 @@ public class MainActivity extends Activity implements ChatStore.Listener {
         if (intent.getBooleanExtra(EXTRA_TALK, false)) pendingTalk = true;
     }
 
+    /** Pro: font size the activity was created with (a change in the Pro menu recreates it). */
+    private float devFontScale = 1f;
+
     @Override
     protected void onResume() {
         super.onResume();
+        if (Dev.ON) {
+            if (Dev.applyTheme(this) || Math.abs(devFontScale - Dev.fontScale(this)) > 0.001f) { recreate(); return; }
+            Dev.onResume(this);
+        }
         store.setListener(this);
         speaker.setStateListener(speaking -> {
             if (speaking) setState(State.SPEAKING);
@@ -139,11 +152,13 @@ public class MainActivity extends Activity implements ChatStore.Listener {
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(pad, Ui.dp(this, 14), pad, Ui.dp(this, 14));
-        header.addView(new BrandMarkView(this), new LinearLayout.LayoutParams(Ui.dp(this, 35), Ui.dp(this, 35)));
+        BrandMarkView mark = new BrandMarkView(this);
+        header.addView(mark, new LinearLayout.LayoutParams(Ui.dp(this, 35), Ui.dp(this, 35)));
         LinearLayout names = new LinearLayout(this);
         names.setOrientation(LinearLayout.VERTICAL);
         names.setPadding(Ui.dp(this, 10), 0, 0, 0);
-        TextView name = text("NTS Orbit", 19, Ui.INK, Ui.groteskBold(this));
+        TextView name = text(Dev.ON ? "NTS Orbit Dev" : "NTS Orbit", 19, Ui.INK, Ui.groteskBold(this));
+        if (Dev.ON) Dev.secretEntry(mark, name);   // tap the logo or the name 7× (or long-press) → Pro menu
         TextView sub = text("nate's tech stuff", 11, Ui.MUTED, Ui.mono(this));
         names.addView(name);
         names.addView(sub);
@@ -308,12 +323,16 @@ public class MainActivity extends Activity implements ChatStore.Listener {
                     : prefs.isServer() ? "Tap the mic and talk. Your local AI server answers (Ollama, LM Studio, llama.cpp …) and I read it out loud."
                     :"", "", System.currentTimeMillis());
         }
-        for (ChatStore.Item it : items) addBubble(it.from, it.text, it.via, it.time);
+        for (ChatStore.Item it : items) {
+            if (Dev.ON) addThinkPanel(it.think, false);
+            addBubble(it.from, it.text, it.via, it.time);
+        }
         scrollDown();
     }
 
     @Override
     public void onAdded(ChatStore.Item item) {
+        if (Dev.ON) addThinkPanel(item.think, false);
         addBubble(item.from, item.text, item.via, item.time);
         scrollDown();
     }
@@ -336,7 +355,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
         if (!system) wrap.addView(meta, new LinearLayout.LayoutParams(-2, -2));
 
         TextView t = text(body, system ? 13 : 16, me ? Ui.PAPER : system ? Ui.MUTED : Ui.INK, system ? Ui.mono(this) : Ui.grotesk(this));
-        if (!me && !system && !TextUtils.isEmpty(body)) t.setText(Markdown.render(body, Ui.withAlpha(Ui.INK, 0x16)));   // v2.3
+        if (!me && !system && !TextUtils.isEmpty(body) && (!Dev.ON || Dev.flag(this, "markdown"))) t.setText(Markdown.render(body, Ui.withAlpha(Ui.INK, 0x16)));   // v2.3
         t.setLineSpacing(0, 1.15f);
         t.setTextIsSelectable(true);
         t.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 11));
@@ -363,9 +382,96 @@ public class MainActivity extends Activity implements ChatStore.Listener {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.bottomMargin = Ui.dp(this, 12);
         chat.addView(wrap, lp);
+        if (Dev.ON && !Dev.animations(this)) return;
         wrap.setAlpha(0f);
         wrap.setTranslationY(Ui.dp(this, 10));
         wrap.animate().alpha(1f).translationY(0).setDuration(260).start();
+    }
+
+    // ------------------------------------------------------------------ Pro: thought process
+
+    /** The live "thinking…" panel above the reply being streamed (Pro). */
+    private View liveThinkWrap;
+    private TextView liveThinkHead, liveThinkBody;
+
+    /** A collapsible "thought process" panel above one of Orbit's replies (Pro, "Show thought process"). */
+    private void addThinkPanel(String stored, boolean live) {
+        if (!Dev.ON || stored == null || stored.isEmpty() || !Dev.showThinking(this)) return;
+        View[] v = thinkPanel(Dev.thinkHeaderOf(stored), Dev.thinkBodyOf(stored));
+        chat.addView(v[0], thinkLp());
+    }
+
+    private LinearLayout.LayoutParams thinkLp() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.bottomMargin = Ui.dp(this, 6);
+        return lp;
+    }
+
+    /** {wrap, header, body} */
+    private View[] thinkPanel(String head, String body) {
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        int maxW = (int) (getResources().getDisplayMetrics().widthPixels * 0.82f);
+        final boolean[] open = {Dev.thinkExpanded(this)};
+        TextView h1 = text((open[0] ? "▾ " : "▸ ") + "💭 " + head, 11, Ui.TEAL, Ui.monoMedium(this));
+        h1.setPadding(Ui.dp(this, 10), Ui.dp(this, 6), Ui.dp(this, 10), Ui.dp(this, 6));
+        h1.setBackground(Ui.box(Ui.withAlpha(Ui.TEAL, 0x18), Ui.withAlpha(Ui.TEAL, 0x55), 1, 10, this));
+        h1.setMaxWidth(maxW);
+        TextView b1 = text(body.trim(), 12, Ui.MUTED, Ui.mono(this));
+        b1.setLineSpacing(0, 1.12f);
+        b1.setTextIsSelectable(true);
+        b1.setMaxWidth(maxW);
+        b1.setPadding(Ui.dp(this, 12), Ui.dp(this, 8), Ui.dp(this, 12), Ui.dp(this, 8));
+        b1.setBackground(Ui.box(Ui.withAlpha(Ui.CREAM, 0x99), Ui.withAlpha(Ui.TEAL, 0x33), 1, 10, this));
+        b1.setVisibility(open[0] ? View.VISIBLE : View.GONE);
+        h1.setOnClickListener(x -> {
+            open[0] = !open[0];
+            b1.setVisibility(open[0] ? View.VISIBLE : View.GONE);
+            String t = h1.getText().toString();
+            h1.setText((open[0] ? "▾ " : "▸ ") + t.substring(2));
+        });
+        wrap.addView(h1, new LinearLayout.LayoutParams(-2, -2));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-2, -2);
+        blp.topMargin = Ui.dp(this, 4);
+        wrap.addView(b1, blp);
+        return new View[]{wrap, h1, b1};
+    }
+
+    /** Pro: a piece of thought process arrived (local <think>, server reasoning, or a tool decision). */
+    private void devThinking(String piece) {
+        if (piece != null && !piece.isEmpty()) Dev.think(piece);
+        devRefreshLiveThink();
+    }
+
+    private void devRefreshLiveThink() {
+        if (!Dev.showThinking(this) || streamWrap == null) return;
+        String body = Dev.pendingThink();
+        if (body.trim().isEmpty()) return;
+        if (liveThinkWrap == null || liveThinkWrap.getParent() == null) {
+            View[] v = thinkPanel(Dev.thinkHeader(true), body);
+            liveThinkWrap = v[0]; liveThinkHead = (TextView) v[1]; liveThinkBody = (TextView) v[2];
+            liveThinkBody.setVisibility(View.VISIBLE);   // live: always open while it streams
+            liveThinkHead.setText("▾ 💭 " + Dev.thinkHeader(true));
+            chat.addView(liveThinkWrap, Math.max(0, chat.indexOfChild(streamWrap)), thinkLp());
+        } else {
+            liveThinkBody.setText(body.trim());
+            String t = liveThinkHead.getText().toString();
+            liveThinkHead.setText(t.substring(0, 2) + "💭 " + Dev.thinkHeader(true));
+        }
+        scrollDown();
+    }
+
+    /** Pro: the raw model output / prompt-as-sent bubbles (not saved in the history). */
+    private void devDebugBubbles() {
+        // snapshot now, show right after the reply bubble lands
+        final String prompt = Dev.showPrompt(this) && !Dev.lastPrompt.isEmpty() ? "prompt as sent · " + Dev.lastParams + "\n\n" + Dev.lastPrompt : null;
+        final String raw = Dev.showRaw(this) && !Dev.lastRaw.isEmpty() ? "raw output · " + Dev.lastStats + "\n\n" + Dev.lastRaw : null;
+        if (prompt == null && raw == null) return;
+        h.post(() -> {
+            if (prompt != null) addBubble(ChatStore.FROM_SYSTEM, prompt, "", System.currentTimeMillis());
+            if (raw != null) addBubble(ChatStore.FROM_SYSTEM, raw, "", System.currentTimeMillis());
+            scrollDown();
+        });
     }
 
     /** v2.3: a small "⚙ set_timer 5 min" chip under the user's message. */
@@ -567,6 +673,13 @@ public class MainActivity extends Activity implements ChatStore.Listener {
             String said = (r == null || r.isEmpty()) ? "" : r.get(0).trim();
             input.setText("");
             if (said.isEmpty()) { onError(SpeechRecognizer.ERROR_NO_MATCH); return; }
+            if (Dev.ON && prefs.handsFree() && Dev.wakeOn(MainActivity.this)) {
+                // Pro: hands-free only reacts to "hey orbit …" (Pro settings → Voice)
+                String after = Dev.wakeFilter(said, Dev.wakePhrase(MainActivity.this), Dev.wakeSensitivity(MainActivity.this));
+                if (after == null) { setStatus("heard \"" + Diag.snippet(said) + "\" · no wake phrase", Ui.MUTED); h.postDelayed(MainActivity.this::startListening, 300); return; }
+                if (after.isEmpty()) { setStatus("yes? listening…", Ui.TEAL); h.postDelayed(MainActivity.this::startListening, 300); return; }
+                said = after;
+            }
             quietRestarts = 0;
             send(said);
         }
@@ -649,7 +762,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
             ChatStore.Item it = items.get(i);
             if (it.via == null || !it.via.startsWith(VIA_SERVER)) continue;
             if (ChatStore.FROM_ME.equals(it.from)) out.add(0, new ServerClient.Msg("user", it.text));
-            else if (ChatStore.FROM_JARVIS.equals(it.from) && !it.via.endsWith("instant")) out.add(0, new ServerClient.Msg("assistant", it.text));
+            else if (ChatStore.FROM_JARVIS.equals(it.from) && !it.via.endsWith("instant")) out.add(0, new ServerClient.Msg("assistant", Dev.ON ? Dev.historyText(this, it) : it.text));
         }
         while (!out.isEmpty() && "assistant".equals(out.get(0).role)) out.remove(0);
         return out;
@@ -664,14 +777,16 @@ public class MainActivity extends Activity implements ChatStore.Listener {
         }
         cancelServer();
         speaker.stop();
+        if (Dev.ON) Dev.beginTurn();
         final List<ServerClient.Msg> msgs = new ArrayList<>();
         String system = LocalBrain.systemPrompt(this, prefs);
+        if (Dev.ON && Dev.forceThinking(this)) system = system + "\n\n" + Dev.FORCE_THINK_PROMPT;
         if (!system.isEmpty()) msgs.add(new ServerClient.Msg("system", system));
         msgs.addAll(serverHistory());
         store.add(ChatStore.FROM_ME, text, VIA_SERVER);
         msgs.add(new ServerClient.Msg("user", text));
         // phone actions ("turn on the flashlight", "set a 5 minute timer") still run right here, no server
-        if (prefs.toolsOn()) {
+        if (prefs.toolsOn() && (!Dev.ON || Dev.flag(this, "router"))) {
             ToolCalls.Call direct = ActionRouter.match(text, appLookup());
             if (direct != null) { runRouted(text, direct, "instant", VIA_SERVER); refreshHint(); return; }
         }
@@ -687,6 +802,9 @@ public class MainActivity extends Activity implements ChatStore.Listener {
         final ServerClient.Cancel cancel = new ServerClient.Cancel();
         serverCancel = cancel;
         final ServerClient client = new ServerClient(sv.url, sv.backend(), sv.apiKey);
+        final long t0 = System.currentTimeMillis();
+        final int[] devPieces = {0};
+        if (Dev.ON) devServerHooks(client, msgs, myChunker, cancel, t0, devPieces);
         final float temp = prefs.temperature();
         final int maxTokens = prefs.maxTokens();
         hint.setText("server · " + sv.label() + " · waiting for the first word…");
@@ -703,7 +821,8 @@ public class MainActivity extends Activity implements ChatStore.Listener {
                 res = client.chat(model, msgs, temp, maxTokens, piece -> h.post(() -> {
                     if (myChunker != chunker || cancel.isCancelled()) return;
                     if (streamBubble != null) { streamBubble.append(piece); scrollDown(); }
-                    if (speak) myChunker.push(piece, sink);
+                    if (Dev.ON && Dev.liveStats(this)) hint.setText(Dev.liveLine(++devPieces[0], t0, 0));
+                    if (speak && (!Dev.ON || Dev.flag(this, "speak_while_streaming"))) myChunker.push(piece, sink);
                 }), cancel);
             } catch (java.io.IOException e) {
                 err = e.getMessage();
@@ -726,6 +845,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
                     return;
                 }
                 String reply = r.text.isEmpty() ? "(no reply)" : r.text;
+                if (Dev.ON) { Dev.lastRaw = Dev.cap(Dev.lastServerResponse); Dev.lastStats = r.statsLine(); devDebugBubbles(); }
                 store.add(ChatStore.FROM_JARVIS, reply, VIA_SERVER + " · " + r.statsLine());
                 Haptics.receive(this);
                 if (speak) {
@@ -735,6 +855,37 @@ public class MainActivity extends Activity implements ChatStore.Listener {
                 refreshHint();
             });
         }, "orbit-server").start();
+    }
+
+    /** Pro: timeout, streaming, extra sampling options, raw JSON capture and the thought process for a server reply. */
+    private void devServerHooks(ServerClient client, List<ServerClient.Msg> msgs, SpeechChunker myChunker,
+                                ServerClient.Cancel cancel, long t0, int[] pieces) {
+        client.timeouts(6000, Dev.serverTimeoutMs(this));
+        ServerClient.DevHooks d = new ServerClient.DevHooks();
+        d.stream = Dev.serverStream(this);
+        d.thinkFilter = Dev.flag(this, "server_think_filter");
+        d.options = Dev.serverOptions(this);
+        final StringBuilder resp = new StringBuilder();
+        d.raw = new ServerClient.RawSink() {
+            @Override public void onRequest(String url, String body) {
+                Dev.lastServerUrl = url;
+                try { Dev.lastServerRequest = Dev.cap(new org.json.JSONObject(body).toString(2)); } catch (Exception e) { Dev.lastServerRequest = Dev.cap(body); }
+                StringBuilder p = new StringBuilder("POST " + url + "\n");
+                for (ServerClient.Msg m : msgs) p.append("<|").append(m.role).append("|>\n").append(m.content).append("\n");
+                Dev.lastPrompt = Dev.cap(p.toString());
+                Dev.lastParams = "server · stream " + d.stream + (d.options == null ? "" : " · " + d.options);
+            }
+            @Override public void onLine(String line) {
+                if (resp.length() < 64 * 1024) resp.append(line).append('\n');
+                Dev.lastServerResponse = resp.toString();
+            }
+        };
+        d.think = piece -> h.post(() -> {
+            if (myChunker != chunker || cancel.isCancelled()) return;
+            devThinking(piece);
+            if (Dev.liveStats(this)) hint.setText(Dev.liveLine(++pieces[0], t0, 1));
+        });
+        client.dev(d);
     }
 
     // ------------------------------------------------------------------ my model (on-device)
@@ -765,6 +916,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
     /** v2.3: get the tool prompt into the model's memory before the first question. */
     private void prewarmTools() {
         if (!prefs.toolsOn() || brain.isGenerating()) return;
+        if (Dev.ON && !Dev.flag(this, "prewarm")) return;
         brain.prewarm(ToolCalls.systemPrompt(LocalBrain.systemPrompt(this, prefs), true, false));
     }
 
@@ -812,7 +964,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
             if (it.via == null || !it.via.startsWith(VIA_LOCAL)) continue;
             if (drop.contains(i)) continue;
             if (ChatStore.FROM_ME.equals(it.from)) out.add(0, new LocalBrain.Turn("user", it.text));
-            else if (ChatStore.FROM_JARVIS.equals(it.from)) out.add(0, new LocalBrain.Turn("assistant", it.text));
+            else if (ChatStore.FROM_JARVIS.equals(it.from)) out.add(0, new LocalBrain.Turn("assistant", Dev.ON ? Dev.historyText(this, it) : it.text));
             else if (ChatStore.FROM_TOOL.equals(it.from)) {
                 // v2.3: the call (and the phone's answer) go back in, so the model keeps using tools
                 try {
@@ -838,6 +990,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
             return;
         }
         if (brain.isGenerating()) { brain.stop(); speaker.stop(); }
+        if (Dev.ON) Dev.beginTurn();
         final List<LocalBrain.Turn> history = localHistory();
         store.add(ChatStore.FROM_ME, text, VIA_LOCAL);
         history.add(new LocalBrain.Turn("user", text));
@@ -846,7 +999,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
         final boolean tools = prefs.toolsOn();
         final boolean askTab = false;   // no hand-off target in this app: phone tools only
         // v2.4: obvious phone actions ("turn on the flashlight", "set a 5 minute timer") skip the model
-        if (tools) {
+        if (tools && (!Dev.ON || Dev.flag(this, "router"))) {
             ToolCalls.Call direct = ActionRouter.match(text, appLookup());
             if (direct != null) { runRouted(text, direct, "instant"); refreshHint(); return; }
         }
@@ -870,7 +1023,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
         final boolean speak = prefs.speakReplies();
         final boolean guard = askTab && round != ROUND_FOLLOW_UP;
         // v2.4: a tool-less "I turned on the flashlight" is held back, never shown or spoken
-        final boolean claimGuard = tools && round != ROUND_FOLLOW_UP;
+        final boolean claimGuard = tools && round != ROUND_FOLLOW_UP && (!Dev.ON || Dev.flag(this, "fake_claim_guard"));
         final ToolCalls.StreamFilter filter = new ToolCalls.StreamFilter(guard, claimGuard ? userText : null, round == ROUND_CLAIM_RETRY);
         final long t0 = System.currentTimeMillis();
         final int[] pieces = {0};
@@ -880,7 +1033,12 @@ public class MainActivity extends Activity implements ChatStore.Listener {
             speaker.enqueueQuiet(s);
         };
         LocalBrain.KeepGoing keep = tools ? soFar -> !ToolCalls.shouldStop(soFar, guard) && !filter.claimed() : null;
+        final boolean devStream = !Dev.ON || Dev.flag(this, "speak_while_streaming");
         brain.generate(history, system, temp, keep, new LocalBrain.GenListener() {
+            @Override public void onThinking(String piece) {
+                if (myChunker != chunker) return;
+                if (Dev.ON) { pieces[0]++; devThinking(piece); if (Dev.liveStats(MainActivity.this)) hint.setText(Dev.liveLine(pieces[0], t0, 1)); }
+            }
             @Override public void onPiece(String piece) {
                 if (myChunker != chunker) return;
                 pieces[0]++;
@@ -889,14 +1047,17 @@ public class MainActivity extends Activity implements ChatStore.Listener {
                 if (tools && !toolHint[0] && (filter.inToolCall() || filter.refused() || filter.claimed())) {
                     toolHint[0] = true;
                     hint.setText(filter.refused() ? ("⚙ …") : filter.claimed() ? "⚙ doing it for real…" : "⚙ using a tool…");
+                } else if (Dev.ON && !toolHint[0] && Dev.liveStats(MainActivity.this)) {
+                    hint.setText(Dev.liveLine(pieces[0], t0, 0));
                 } else if (!toolHint[0] && pieces[0] % 8 == 0) {
                     double secs = (System.currentTimeMillis() - t0) / 1000.0;
                     hint.setText(String.format(Locale.US, "offline · %d tok · %.1f s", pieces[0], secs));
                 }
-                if (speak && !vis.isEmpty()) myChunker.push(vis, sink);
+                if (speak && !vis.isEmpty() && devStream) myChunker.push(vis, sink);
             }
             @Override public void onDone(String reply, LocalBrain.Stats st) {
                 if (myChunker != chunker) return;
+                if (Dev.ON) devDebugBubbles();
                 String tail = tools ? filter.finish() : "";
                 removeStreamBubble();
                 if (!tools || st.stopped) {
@@ -1029,7 +1190,10 @@ public class MainActivity extends Activity implements ChatStore.Listener {
     private void runRouted(String userText, ToolCalls.Call call, String how) { runRouted(userText, call, how, VIA_LOCAL); }
 
     private void runRouted(String userText, ToolCalls.Call call, String how, String via) {
-        ToolDispatcher.Outcome o = ToolDispatcher.dispatch(call, userText, false, new PhoneTools(this));
+        if (Dev.ON) Dev.thinkNote("⚙ router (" + how + ", no model): " + call.json());
+        ToolDispatcher.Outcome o = ToolDispatcher.dispatch(call, userText, false,
+                Dev.ON ? Dev.actions(this, new PhoneTools(this)) : new PhoneTools(this));
+        if (Dev.ON) Dev.thinkNote("  → " + o.kind.name().toLowerCase(Locale.US) + (o.response == null ? "" : " " + o.response));
         Diag.log(this, "my model", "router", o.chip, how + " · " + o.kind.name().toLowerCase(Locale.US) + " " + (o.response == null ? "" : o.response));
         addToolItem(o.kind == ToolDispatcher.Kind.ERROR ? o.chip + " ✕" : o.chip,
                 ToolCalls.toolCallText(java.util.Collections.singletonList(o.call)),
@@ -1062,7 +1226,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
     /** Runs the parsed calls: local ones on the phone (then a short spoken follow-up), ask_tab → the hand-off (off in this app). */
     private void runTools(String userText, List<LocalBrain.Turn> history, String system, boolean tools, boolean askTab,
                           ToolCalls.Parsed parsed, LocalBrain.Stats st) {
-        PhoneTools phone = new PhoneTools(this);
+        ToolDispatcher.Actions phone = Dev.ON ? Dev.actions(this, new PhoneTools(this)) : new PhoneTools(this);
         List<ToolCalls.Call> done = new ArrayList<>();
         List<String> responses = new ArrayList<>(), chips = new ArrayList<>();
         StringBuilder speech = new StringBuilder();
@@ -1070,7 +1234,9 @@ public class MainActivity extends Activity implements ChatStore.Listener {
         int n = 0;
         for (ToolCalls.Call c : parsed.calls) {
             if (n++ >= 3) break;
+            if (Dev.ON) Dev.thinkNote("⚙ tool decision: " + c.json());
             ToolDispatcher.Outcome o = ToolDispatcher.dispatch(c, userText, askTab, phone);
+            if (Dev.ON) { Dev.thinkNote("  → " + o.kind.name().toLowerCase(Locale.US) + (o.response == null ? "" : " " + o.response)); devThinking(null); }
             Diag.log(this, "my model", "tool", o.chip, o.kind == ToolDispatcher.Kind.ASK_TAB ? ("→ (unavailable)") : o.kind.name().toLowerCase(Locale.US) + " " + (o.response == null ? "" : o.response));
             if (o.kind == ToolDispatcher.Kind.ASK_TAB) { if (ask == null) ask = o; continue; }
             done.add(o.call);
@@ -1142,6 +1308,7 @@ public class MainActivity extends Activity implements ChatStore.Listener {
     }
 
     private void removeStreamBubble() {
+        if (Dev.ON && liveThinkWrap != null) { chat.removeView(liveThinkWrap); liveThinkWrap = null; }
         if (streamWrap != null) chat.removeView(streamWrap);
         streamWrap = null;
         streamBubble = null;

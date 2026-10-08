@@ -9,14 +9,16 @@ import android.widget.TextView;
 
 /** natestechstuff.com design tokens: colors, fonts, shapes. */
 public final class Ui {
-    public static final int PAPER = Color.parseColor("#111916");
-    public static final int CREAM = Color.parseColor("#1a2520");
-    public static final int PANEL = Color.parseColor("#22352e");   // the site's .signal-box
-    public static final int LINE = Color.parseColor("#34443c");
-    public static final int SHADOW = Color.parseColor("#29372f");
+    // PAPER…LIME are not final only so the Pro's theme/accent override (Dev.applyTheme) can set them;
+    // nothing else ever writes them.
+    public static int PAPER = Color.parseColor("#111916");
+    public static int CREAM = Color.parseColor("#1a2520");
+    public static int PANEL = Color.parseColor("#22352e");   // the site's .signal-box
+    public static int LINE = Color.parseColor("#34443c");
+    public static int SHADOW = Color.parseColor("#29372f");
     public static final int INK = Color.parseColor("#e3ece6");
     public static final int MUTED = Color.parseColor("#a1b0a8");
-    public static final int LIME = Color.parseColor("#c9ec72");
+    public static int LIME = Color.parseColor("#c9ec72");
     public static final int TEAL = Color.parseColor("#55c5b1");
     public static final int CORAL = Color.parseColor("#f48b70");
     public static final int BLUE = Color.parseColor("#83aaff");

@@ -1,0 +1,33 @@
+[Unit]
+Description=NTS Orbit key bot (DMs premium keys for supporter roles)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=orbitkeybot
+Group=orbitkeybot
+WorkingDirectory=/opt/orbit-keybot
+Environment=PYTHONPATH=/opt/orbit-keybot
+Environment=PYTHONUNBUFFERED=1
+Environment=ORBIT_KEYBOT_CONFIG=/etc/orbit-keybot/config.json
+# bot token: root-only file, handed to the service through systemd credentials (never in env or logs)
+LoadCredential=token:/etc/orbit-keybot/token
+ExecStart=/opt/orbit-keybot/venv/bin/python -m orbitkey.bot
+StateDirectory=orbit-keybot
+StateDirectoryMode=0700
+Restart=always
+RestartSec=60
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/orbit-keybot
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

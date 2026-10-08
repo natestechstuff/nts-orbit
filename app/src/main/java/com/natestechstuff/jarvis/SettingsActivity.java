@@ -36,14 +36,21 @@ public class SettingsActivity extends Activity {
     private EditText sysPrompt;
     private boolean importing;
     private LinearLayout col;
+    private boolean devOpened;   // Pro menu opened once (7-tap shortcut hint)
     private Spinner voice;
     private List<Voice> voices = new ArrayList<>();
     private final Handler h = new Handler(Looper.getMainLooper());
 
     @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(Dev.ON ? Dev.wrap(base) : base);   // Pro: Pro font size
+    }
+
+    @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = new Prefs(this);
+        if (Dev.ON) Dev.applyTheme(this);
         FrameLayout root = new FrameLayout(this);
         root.setBackground(new GridDrawable(Ui.dp(this, 42)));
         root.setFitsSystemWindows(true);
@@ -63,6 +70,7 @@ public class SettingsActivity extends Activity {
         title.setTextColor(Ui.INK);
         col.addView(title);
 
+        buildPremiumSection();
         buildServerSection();   // Server is the first thing in Settings
 
         LinearLayout brainSec = section("brain · who answers", Ui.LIME);
@@ -165,6 +173,32 @@ public class SettingsActivity extends Activity {
         col.addView(foot, flp);
 
         loadVoices(0);
+    }
+
+    /** Premium: tier badge + "Enter key", and the way into Pro settings once unlocked. */
+    private void buildPremiumSection() {
+        boolean pro = Pro.isPro(this);
+        LinearLayout p = section("premium", Ui.LIME);
+        TextView note = new TextView(this);
+        note.setText(pro ? "Unlocked: " + Pro.tierLabel(this) + ". Thanks for supporting Orbit!"
+                : "Have a key from the Discord (Crew 2, Crew 3, Baller) or a Pro purchase? Enter it to unlock Pro settings.");
+        note.setTypeface(Ui.grotesk(this));
+        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        note.setTextColor(Ui.MUTED);
+        note.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 10));
+        p.addView(note);
+        LinearLayout row = new LinearLayout(this);
+        TextView key = Ui.chip(this, pro ? "★ " + Pro.tierLabel(this).toLowerCase(java.util.Locale.US) + " · manage key" : "enter key →", pro ? Ui.LIME : Ui.CORAL);
+        key.setOnClickListener(x -> { save(); devOpened = true; startActivity(new Intent(this, PremiumActivity.class)); });
+        row.addView(key);
+        if (pro) {
+            TextView open = Ui.chip(this, "pro settings →", Ui.TEAL);
+            open.setOnClickListener(x -> { save(); devOpened = true; Dev.open(this); });
+            LinearLayout.LayoutParams olp = new LinearLayout.LayoutParams(-2, -2);
+            olp.leftMargin = Ui.dp(this, 8);
+            row.addView(open, olp);
+        }
+        p.addView(row);
     }
 
     private void loadVoices(int attempt) {
@@ -323,6 +357,8 @@ public class SettingsActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Pro: back from the Pro menu → rebuild, so these fields show (and later save) its values
+        if (devOpened) { devOpened = false; recreate(); return; }
         refreshServerSummary();
         if (brainLocal != null) refreshBrain();
     }

@@ -21,3 +21,11 @@ third_party/
 
 # models are big: download the .gguf from Releases instead
 *.gguf
+
+# key bot: python caches, local config, key database and the signing key (never commit)
+__pycache__/
+.pytest_cache/
+*.pyc
+keybot/config.json
+*.db
+signing.key

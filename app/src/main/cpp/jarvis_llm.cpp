@@ -91,7 +91,7 @@ void Engine::unload() {
     cached_.clear();
 }
 
-std::string Engine::load(const std::string & path, int n_ctx, int n_threads) {
+std::string Engine::load(const std::string & path, int n_ctx, int n_threads, int n_batch) {
     unload();
     path_ = path;
     if (n_threads <= 0) {
@@ -109,8 +109,9 @@ std::string Engine::load(const std::string & path, int n_ctx, int n_threads) {
 
     llama_context_params cp = llama_context_default_params();
     cp.n_ctx = (uint32_t) std::max(512, n_ctx);
-    cp.n_batch = 512;
-    cp.n_ubatch = 512;
+    if (n_batch <= 0) n_batch = 512;
+    cp.n_batch = (uint32_t) n_batch;
+    cp.n_ubatch = (uint32_t) n_batch;
     cp.n_threads = n_threads;
     cp.n_threads_batch = n_threads;
     cp.abort_callback = abort_cb;
@@ -119,6 +120,28 @@ std::string Engine::load(const std::string & path, int n_ctx, int n_threads) {
     ctx_ = llama_init_from_model(model_, cp);
     if (!ctx_) { unload(); return "model loaded but the context didn't fit in memory (try a smaller context)"; }
     return "";
+}
+
+std::string Engine::metadata() const {
+    if (!model_) return "";
+    std::string out;
+    int n = llama_model_meta_count(model_);
+    char key[256], val[512];
+    for (int i = 0; i < n; i++) {
+        if (llama_model_meta_key_by_index(model_, i, key, sizeof(key)) < 0) continue;
+        int vl = llama_model_meta_val_str_by_index(model_, i, val, sizeof(val));
+        if (vl < 0) continue;
+        std::string v(val);
+        if (vl >= (int) sizeof(val)) v += "…";
+        out += key; out += " = "; out += v; out += "\n";
+    }
+    char buf[256];
+    snprintf(buf, sizeof(buf), "n_params = %llu\nsize_bytes = %llu\nn_ctx_train = %d\nn_embd = %d\nn_layer = %d\nn_vocab = %d\n",
+             (unsigned long long) llama_model_n_params(model_), (unsigned long long) llama_model_size(model_),
+             llama_model_n_ctx_train(model_), llama_model_n_embd(model_), llama_model_n_layer(model_),
+             llama_vocab_n_tokens(vocab_));
+    out += buf;
+    return out;
 }
 
 int Engine::n_ctx() const { return ctx_ ? (int) llama_n_ctx(ctx_) : 0; }

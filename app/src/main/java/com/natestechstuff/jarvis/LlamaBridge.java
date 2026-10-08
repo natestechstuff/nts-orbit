@@ -36,5 +36,12 @@ final class LlamaBridge {
                                           float temp, int topK, float topP, float minP, float repeatPenalty,
                                           PieceCallback cb, String[] errOut);
 
+    // Pro only (Pro menu): batch size, GGUF metadata, repeat window + seed (seed < 0 = random)
+    static native String nativeLoad2(long h, String path, int nCtx, int nThreads, int nBatch);
+    static native String nativeMeta(long h);
+    static native double[] nativeGenerate2(long h, String[] roles, String[] contents, int maxTokens,
+                                           float temp, int topK, float topP, float minP, float repeatPenalty,
+                                           int repeatLastN, long seed, PieceCallback cb, String[] errOut);
+
     private LlamaBridge() {}
 }

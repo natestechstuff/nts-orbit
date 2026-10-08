@@ -85,6 +85,39 @@ public final class ServerClient {
     private final String base;
     private final String type;
     private final String apiKey;
+    /** Pro only (null everywhere else): streaming switch, extra options, raw JSON capture, thought process. */
+    public static final class DevHooks {
+        public boolean stream = true, thinkFilter = true;
+        public JSONObject options;
+        public Sink think;
+        public RawSink raw;
+
+        String body(String body, String backend) {
+            try {
+                JSONObject o = new JSONObject(body);
+                o.put("stream", stream);
+                if (options != null && options.length() > 0) {
+                    JSONObject target = OLLAMA.equals(backend) ? o.optJSONObject("options") : o;
+                    if (target == null) { target = new JSONObject(); o.put("options", target); }
+                    java.util.Iterator<String> it = options.keys();
+                    while (it.hasNext()) {
+                        String k = it.next();
+                        if (OPENAI.equals(backend) && k.equals("repeat_penalty")) target.put("frequency_penalty", Math.max(0, options.getDouble(k) - 1.0));
+                        else target.put(k, options.get(k));
+                    }
+                }
+                return o.toString();
+            } catch (JSONException e) {
+                return body;
+            }
+        }
+        void line(String l) { if (raw != null) raw.onLine(l); }
+        void thought(String t) { if (think != null && t != null && !t.isEmpty()) think.onPiece(t); }
+    }
+    public interface RawSink { void onRequest(String url, String body); void onLine(String line); }
+    private DevHooks dev;
+    public ServerClient dev(DevHooks d) { dev = d; return this; }
+
     private int connectTimeoutMs = 6000;
     private int readTimeoutMs = 180_000;   // a big model can take a while to load before the first token
 
@@ -250,7 +283,9 @@ public final class ServerClient {
 
     private Result chatOllama(String model, List<Msg> messages, float temperature, int maxTokens, Sink sink, Cancel cancel) throws IOException {
         long t0 = System.currentTimeMillis();
-        HttpURLConnection c = post("/api/chat", ollamaBody(model, messages, temperature, maxTokens), OLLAMA, cancel);
+        String body = ollamaBody(model, messages, temperature, maxTokens);
+        if (dev != null) { body = dev.body(body, OLLAMA); if (dev.raw != null) dev.raw.onRequest(base + "/api/chat", body); }
+        HttpURLConnection c = post("/api/chat", body, OLLAMA, cancel);
         StringBuilder all = new StringBuilder();
         ThinkFilter think = new ThinkFilter();
         OllamaChunk last = null;
@@ -260,11 +295,14 @@ public final class ServerClient {
             while ((line = r.readLine()) != null) {
                 if (cancel != null && cancel.isCancelled()) break;
                 if (line.trim().isEmpty()) continue;
+                if (dev != null) dev.line(line);
                 OllamaChunk ch = parseOllamaLine(line);
                 if (ch.error != null) throw new IOException(explainModelError(ch.error, model, OLLAMA));
+                if (dev != null && !ch.thinking.isEmpty()) { pieces++; dev.thought(ch.thinking); }
                 if (!ch.content.isEmpty()) {
                     pieces++;
-                    String vis = think.push(ch.content);
+                    String vis = dev != null && !dev.thinkFilter ? ch.content : think.push(ch.content);
+                    if (dev != null) dev.thought(think.takeThought());
                     if (!vis.isEmpty()) { all.append(vis); if (sink != null) sink.onPiece(vis); }
                 }
                 if (ch.done) { last = ch; break; }
@@ -276,6 +314,7 @@ public final class ServerClient {
             c.disconnect();
         }
         String tail = think.finish();
+        if (dev != null) dev.thought(think.takeThought());
         if (!tail.isEmpty()) { all.append(tail); if (sink != null) sink.onPiece(tail); }
         long ms = System.currentTimeMillis() - t0;
         int tokens = last != null && last.evalCount > 0 ? last.evalCount : pieces;
@@ -286,7 +325,9 @@ public final class ServerClient {
 
     private Result chatOpenAi(String model, List<Msg> messages, float temperature, int maxTokens, Sink sink, Cancel cancel) throws IOException {
         long t0 = System.currentTimeMillis();
-        HttpURLConnection c = post("/v1/chat/completions", openAiBody(model, messages, temperature, maxTokens), OPENAI, cancel);
+        String body = openAiBody(model, messages, temperature, maxTokens);
+        if (dev != null) { body = dev.body(body, OPENAI); if (dev.raw != null) dev.raw.onRequest(base + "/v1/chat/completions", body); }
+        HttpURLConnection c = post("/v1/chat/completions", body, OPENAI, cancel);
         StringBuilder all = new StringBuilder();
         ThinkFilter think = new ThinkFilter();
         int pieces = 0, usageTokens = 0;
@@ -294,9 +335,13 @@ public final class ServerClient {
         try {
             if (ctype.contains("application/json")) {
                 // server ignored "stream": true and sent one JSON answer
-                SseChunk ch = parseOpenAiJson(read(c.getInputStream()));
+                String whole = read(c.getInputStream());
+                if (dev != null) dev.line(whole);
+                SseChunk ch = parseOpenAiJson(whole);
                 if (ch.error != null) throw new IOException(explainModelError(ch.error, model, OPENAI));
-                String vis = think.push(ch.content) + think.finish();
+                if (dev != null) dev.thought(ch.reasoning);
+                String vis = dev != null && !dev.thinkFilter ? ch.content : think.push(ch.content) + think.finish();
+                if (dev != null) dev.thought(think.takeThought());
                 all.append(vis);
                 if (sink != null && !vis.isEmpty()) sink.onPiece(vis);
                 usageTokens = ch.completionTokens;
@@ -305,19 +350,23 @@ public final class ServerClient {
                     String line;
                     while ((line = r.readLine()) != null) {
                         if (cancel != null && cancel.isCancelled()) break;
+                        if (dev != null && !line.trim().isEmpty()) dev.line(line);
                         SseChunk ch = parseSseLine(line);
                         if (ch == null) continue;
                         if (ch.error != null) throw new IOException(explainModelError(ch.error, model, OPENAI));
                         if (ch.completionTokens > 0) usageTokens = ch.completionTokens;
+                        if (dev != null && !ch.reasoning.isEmpty()) { pieces++; dev.thought(ch.reasoning); }
                         if (!ch.content.isEmpty()) {
                             pieces++;
-                            String vis = think.push(ch.content);
+                            String vis = dev != null && !dev.thinkFilter ? ch.content : think.push(ch.content);
+                            if (dev != null) dev.thought(think.takeThought());
                             if (!vis.isEmpty()) { all.append(vis); if (sink != null) sink.onPiece(vis); }
                         }
                         if (ch.done) break;
                     }
                 }
                 String tail = think.finish();
+                if (dev != null) dev.thought(think.takeThought());
                 if (!tail.isEmpty()) { all.append(tail); if (sink != null) sink.onPiece(tail); }
             }
         } catch (IOException e) {
@@ -364,6 +413,8 @@ public final class ServerClient {
 
     public static final class SseChunk {
         public String content = "", error;
+        /** reasoning_content / reasoning (DeepSeek, vLLM, LM Studio, OpenRouter …); shown only by the Pro */
+        public String reasoning = "";
         public boolean done;
         public int completionTokens;
     }
@@ -399,6 +450,11 @@ public final class ServerClient {
                     if (delta != null && !delta.isNull("content")) ch.content = delta.optString("content", "");
                     else if (msg != null && !msg.isNull("content")) ch.content = msg.optString("content", "");
                     else if (!c0.isNull("text")) ch.content = c0.optString("text", "");   // legacy completions shape
+                    JSONObject src = delta != null ? delta : msg;
+                    if (src != null) {
+                        if (!src.isNull("reasoning_content")) ch.reasoning = src.optString("reasoning_content", "");
+                        else if (!src.isNull("reasoning")) ch.reasoning = src.optString("reasoning", "");
+                    }
                 }
             }
             JSONObject usage = o.optJSONObject("usage");
@@ -436,6 +492,11 @@ public final class ServerClient {
         private final StringBuilder pending = new StringBuilder();
         private boolean inThink;
         private boolean started;   // any visible text yet (leading whitespace after a think block is dropped)
+        private final StringBuilder thought = new StringBuilder();   // Pro: what was hidden, for the thought panel
+
+        /** The hidden <think> text since the last call (Pro's thought panel). */
+        public String takeThought() { String t = thought.toString(); thought.setLength(0); return t; }
+        public boolean inThink() { return inThink; }
 
         public String push(String piece) {
             pending.append(piece);
@@ -447,10 +508,12 @@ public final class ServerClient {
                     if (e < 0) {
                         // keep only what could be the start of "</think>"
                         int keep = partialSuffix(p, CLOSE);
+                        thought.append(p, 0, p.length() - keep);
                         pending.setLength(0);
                         pending.append(p.substring(p.length() - keep));
                         break;
                     }
+                    thought.append(p, 0, e);
                     pending.setLength(0);
                     pending.append(p.substring(e + CLOSE.length()));
                     inThink = false;
@@ -474,6 +537,7 @@ public final class ServerClient {
         }
 
         public String finish() {
+            if (inThink) thought.append(pending);
             String rest = inThink ? "" : pending.toString();
             pending.setLength(0);
             return visible(rest);

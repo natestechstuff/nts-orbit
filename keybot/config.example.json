@@ -1,0 +1,14 @@
+{
+  "guild_id": "YOUR_SERVER_ID",
+  "role_tiers": {
+    "BALLER_ROLE_ID": "BALLER",
+    "CREW3_ROLE_ID": "CREW3",
+    "CREW2_ROLE_ID": "CREW2"
+  },
+  "owner_role_id": "OWNER_ROLE_ID",
+  "db_path": "/var/lib/orbit-keybot/keys.db",
+  "signing_key_path": "/etc/orbit-keybot/signing.key",
+  "notify_channel_id": null,
+  "expiry_days": {},
+  "download_hint": "Don't have the app yet? Grab it from #download in the server."
+}

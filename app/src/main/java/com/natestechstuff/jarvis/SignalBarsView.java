@@ -44,7 +44,7 @@ public class SignalBarsView extends View {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        clock.start();
+        if (!Dev.ON || Dev.animations(getContext())) clock.start();   // Pro: Developer → animations off
     }
 
     @Override
