@@ -26,9 +26,9 @@ What it does **not** do: no texting, no SMS, no reading notifications or contact
 
 ## Install
 
-1. Go to **[Releases](../../releases)** and download the APK (`NTS-ORBIT-PUBLIC-1.0.0.apk`) on your phone.
-2. Open it and allow "install unknown apps" for your browser/files app when Android asks.
-3. Needs Android 8.0+ on a **64-bit ARM** phone (almost every phone from the last few years).
+**Coming soon to Google Play.** The prebuilt APK has been taken down while NTS Orbit gets ready for the Play Store.
+
+Needs Android 8.0+ on a **64-bit ARM** phone (almost every phone from the last few years).
 
 Package name: `com.natestechstuff.orbit`.
 
@@ -81,7 +81,7 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties    # your SDK path
 
 llama.cpp is downloaded automatically at the pinned commit the app was tested with. To use a local checkout instead: `./gradlew assembleRelease -PllamaCppDir=/path/to/llama.cpp`.
 
-`assembleRelease` signs with your local Android **debug key** so the APK installs straight away. An APK you build has a different signature from the one in Releases, so uninstall one before installing the other. For a real store release, set up your own release keystore (and never commit it).
+`assembleRelease` signs with your local Android **debug key** so the APK installs straight away. An APK you build has a different signature from the official release, so uninstall one before installing the other. For a real store release, set up your own release keystore (and never commit it).
 
 ### Tests
 
