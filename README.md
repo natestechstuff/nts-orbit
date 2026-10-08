@@ -22,7 +22,7 @@ What it does **not** do: no texting, no SMS, no reading notifications or contact
 
 ## Install
 
-1. Go to **[Releases](../../releases)** and download `nts-orbit-public-1.0.0.apk` on your phone.
+1. Go to **[Releases](../../releases)** and download the APK (`NTS-ORBIT-PUBLIC-1.0.0.apk`) on your phone.
 2. Open it and allow "install unknown apps" for your browser/files app when Android asks.
 3. Needs Android 8.0+ on a **64-bit ARM** phone (almost every phone from the last few years).
 
@@ -32,14 +32,34 @@ Package name: `com.natestechstuff.orbit`.
 
 For on-device mode you need a GGUF model file:
 
-1. Download the NTS Orbit model `.gguf` from the same **[Release](../../releases)** (about 1 GB, use Wi-Fi).
+1. Download the NTS Orbit model, `NTS-ORBIT-PUBLIC.gguf`, from the same **[Release](../../releases)** (about 1 GB, use Wi-Fi).
 2. In the app: **Settings → on-device model → pick .gguf file**, choose the download, then tap **▶ test**.
 
 Any other small chat GGUF works too (for example a Qwen2.5 1.5B/3B Instruct `Q4_K_M`). Bigger models need more RAM: 1.5B runs well on most phones with 6 GB+.
 
 Prefer your computer's GPU? Skip the download, run Ollama or LM Studio on your PC, and add it under **Server**.
 
-**About the model:** the NTS Orbit model is a fine-tune of [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) (Apache-2.0). The base model's license applies to the weights. Its safety training is **best-effort, not a guarantee**: small models can still be wrong, make things up, or answer things they shouldn't. Double-check anything important.
+See [The model: how it was trained](#the-model-how-it-was-trained) for what's inside it.
+
+## The model: how it was trained
+
+The NTS Orbit model is a fine-tune of **[Qwen2.5-Coder-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct)** (Apache-2.0). It was trained with **QLoRA** (the base model loaded in 4-bit, LoRA rank 16) on a free **Kaggle T4 GPU**, in two rounds:
+
+| | Round 1 | Round 2 (the public model) |
+|---|---|---|
+| Started from | Qwen2.5-Coder-1.5B-Instruct | the round 1 adapter |
+| Training data | ~6,100 conversations | ~2,760 conversations (~1.27M tokens) |
+| Epochs / learning rate | 2 / 2e-4 | 1 / 1e-4 |
+
+**Round 1** taught the basics: ~580 hand-written examples (a short, casual voice-friendly style, Linux and coding help, defensive security, AI/ML) mixed with filtered conversations from public datasets: [glaive-code-assistant](https://huggingface.co/datasets/glaiveai/glaive-code-assistant) and [oasst2](https://huggingface.co/datasets/OpenAssistant/oasst2) (Apache-2.0) and [self-oss-instruct-sc2](https://huggingface.co/datasets/bigcode/self-oss-instruct-sc2-exec-filter-50k) (ODC-By 1.0).
+
+**Round 2** made the public edition. It added **354 new defensive-security and CTF examples** (including refusals for things like breaking into accounts or systems you don't own), **328 multi-turn chat examples** so it handles back-and-forth better, **41 examples about the public edition itself**, and **548 tool-calling examples** for phone actions (timer, alarm, flashlight, open app, time, battery) using Qwen's native `<tool_call>` format. About 1,500 older examples were replayed so it didn't forget round 1. The public data in this round is Apache-2.0 only (glaive-code-assistant and oasst2).
+
+The checkpoint with the best validation loss is the one kept (losses logged during the run: train about 0.73, validation about 0.86). It was then merged into the base model and converted with llama.cpp to **GGUF Q4_K_M** (about 1 GB). On a mid-range phone (Moto g power 5G, 2024) it runs at about **5–6 tokens/second, fully offline**.
+
+The training notebooks and data aren't published here.
+
+**Safety:** the model's safety training is **best-effort, not a guarantee**. Small models can still be wrong, make things up, or answer things they shouldn't. Double-check anything important. The base model's license (Apache-2.0) applies to the weights.
 
 ## Build it yourself
 
@@ -81,9 +101,13 @@ app/src/test/         unit tests (JUnit + Robolectric, mock HTTP servers)
 
 The Java package is `com.natestechstuff.jarvis` (the project's original codename); the app id is `com.natestechstuff.orbit`.
 
+## Contact
+
+Made by **Nate's Tech Stuff**: [natestechstuff.com](https://natestechstuff.com) · [info@natestechstuff.com](mailto:info@natestechstuff.com)
+
 ## License
 
 NTS Orbit is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License v3.0** (see [LICENSE](LICENSE)).
 Copyright (C) 2026 Nate's Tech Stuff.
 
-Third-party parts keep their own licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (llama.cpp/ggml: MIT, fonts: SIL OFL 1.1, model weights: Qwen2.5 Apache-2.0).
+Third-party parts keep their own licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (llama.cpp/ggml: MIT, fonts: SIL OFL 1.1, model weights: Qwen2.5-Coder Apache-2.0).

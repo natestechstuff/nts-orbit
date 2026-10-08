@@ -39,7 +39,9 @@ Bundled in `app/src/main/assets/fonts/`. Full license text: `app/src/main/assets
 
 ## Model weights (not in this repository)
 
-The NTS Orbit `.gguf` model attached to Releases is a fine-tune of **Qwen2.5-1.5B-Instruct** by the Qwen team (Alibaba Cloud), licensed under the **Apache License 2.0** (https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct). The base model's license applies to the weights. The GPL-3.0 license of this repository covers the app's source code, not the model weights.
+The NTS Orbit `.gguf` model attached to Releases is a fine-tune of **Qwen2.5-Coder-1.5B-Instruct** by the Qwen team (Alibaba Cloud), licensed under the **Apache License 2.0** (https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct). The base model's license applies to the weights. The GPL-3.0 license of this repository covers the app's source code, not the model weights.
+
+Training data drawn from: glaiveai/glaive-code-assistant (Apache-2.0), OpenAssistant/oasst2 (Apache-2.0) and, in the first training round only, bigcode/self-oss-instruct-sc2-exec-filter-50k (ODC-By 1.0). The rest of the training examples were written for this project.
 
 ## Test-only dependencies (not shipped in the app)
 
