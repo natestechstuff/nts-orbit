@@ -2,6 +2,10 @@
 
 An AI assistant for Android that runs **on your phone** or talks to **your own AI server**. No accounts, no cloud, no tracking. Made by **Nate's Tech Stuff**.
 
+[![License: NTS Orbit License (source-available)](https://img.shields.io/badge/license-source--available-blue)](LICENSE)
+
+**Free to download and use. Source-available:** the code is here to read for reference, but it isn't open source. Copying, modifying or redistributing it isn't allowed without permission (see [License](#license)).
+
 ![NTS Orbit screens](docs/screens.png)
 
 > **Heads up: NTS Orbit is in development.** Things will change and there are bugs. Issues and ideas are welcome.
@@ -59,9 +63,11 @@ The checkpoint with the best validation loss is the one kept (losses logged duri
 
 The training notebooks and data aren't published here.
 
-**Safety:** the model's safety training is **best-effort, not a guarantee**. Small models can still be wrong, make things up, or answer things they shouldn't. Double-check anything important. The base model's license (Apache-2.0) applies to the weights.
+**Safety:** the model's safety training is **best-effort, not a guarantee**. Small models can still be wrong, make things up, or answer things they shouldn't. Double-check anything important. The base model, Qwen2.5-Coder-1.5B-Instruct, is Apache-2.0; the fine-tuned NTS Orbit model is under the NTS Orbit License (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
 
 ## Build it yourself
+
+The license lets you build an **unmodified** copy for your own personal use. Sharing builds or modified versions isn't allowed without permission.
 
 You need JDK 17, the Android SDK (platform 34) and **NDK 27.2.12479018** + CMake 3.22.1 (install both from Android Studio's SDK Manager).
 
@@ -107,7 +113,14 @@ Made by **Nate's Tech Stuff**: [natestechstuff.com](https://natestechstuff.com) 
 
 ## License
 
-NTS Orbit is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License v3.0** (see [LICENSE](LICENSE)).
-Copyright (C) 2026 Nate's Tech Stuff.
+NTS Orbit is **source-available** under the **[NTS Orbit License](LICENSE)**. Copyright © 2026 Nate's Tech Stuff. All rights not granted are reserved.
 
-Third-party parts keep their own licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (llama.cpp/ggml: MIT, fonts: SIL OFL 1.1, model weights: Qwen2.5-Coder Apache-2.0).
+- ✅ Free to download, install and use the app and the model for personal use
+- ✅ Read the source for reference, and build an unmodified copy for yourself
+- ❌ No copying, modifying, redistributing, sublicensing or reselling without written permission
+
+Want to do something the license doesn't allow? Ask at [info@natestechstuff.com](mailto:info@natestechstuff.com).
+
+Version 1.0.0 was first published under GPL-3.0; copies obtained under GPL-3.0 before the change keep those rights.
+
+Third-party parts keep their own licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (llama.cpp/ggml: MIT, fonts: SIL OFL 1.1, Qwen2.5-Coder base model: Apache-2.0, Gradle wrapper: Apache-2.0).
