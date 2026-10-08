@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- You type in your own server (Ollama, LM Studio, llama.cpp …), usually plain http on your
+     home network or over a VPN like Tailscale, so plain http is allowed for any host you enter.
+     The app makes no other network connections. User-installed CAs are trusted for self-hosted https. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

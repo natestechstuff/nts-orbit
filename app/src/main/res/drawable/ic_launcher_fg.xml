@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NTS Orbit mark: the site's N with a teal orbit (behind the top of the N, in front of the bottom) and a lime satellite. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.76" android:scaleY="0.76">
+        <!-- back half of the ring (the N covers it) -->
+        <group android:pivotX="54" android:pivotY="55" android:rotation="-24">
+            <path android:pathData="M21,55a33,11.5 0,1 0,66 0a33,11.5 0,1 0,-66 0" android:strokeColor="#55c5b1" android:strokeAlpha="0.6" android:strokeWidth="3" />
+        </group>
+        <path android:pathData="M38,33h9l14,24.5V33h9v42h-9L47,50.5V75h-9z" android:fillColor="#e3ece6" />
+        <!-- front half of the ring, over the N -->
+        <group android:pivotX="54" android:pivotY="55" android:rotation="-24">
+            <clip-path android:pathData="M-20,55h150v60h-150z" />
+            <path android:pathData="M21,55a33,11.5 0,1 0,66 0a33,11.5 0,1 0,-66 0" android:strokeColor="#18241e" android:strokeWidth="7.5" />
+            <path android:pathData="M21,55a33,11.5 0,1 0,66 0a33,11.5 0,1 0,-66 0" android:strokeColor="#55c5b1" android:strokeWidth="3.6" />
+        </group>
+        <!-- satellite -->
+        <group android:pivotX="54" android:pivotY="55" android:rotation="-24">
+            <path android:pathData="M71.4,61.9a9,9 0,1 0,18 0a9,9 0,1 0,-18 0">
+                <aapt:attr name="android:fillColor">
+                    <gradient android:type="radial" android:centerX="80.4" android:centerY="61.9" android:gradientRadius="9"
+                        android:startColor="#80c9ec72" android:endColor="#00c9ec72" />
+                </aapt:attr>
+            </path>
+            <path android:pathData="M75.7,61.9a4.7,4.7 0,1 0,9.4 0a4.7,4.7 0,1 0,-9.4 0" android:fillColor="#18241e" />
+            <path android:pathData="M76.9,61.9a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0" android:fillColor="#c9ec72" />
+        </group>
+    </group>
+</vector>

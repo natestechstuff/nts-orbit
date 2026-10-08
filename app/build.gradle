@@ -1,0 +1,85 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    // Java package is still com.natestechstuff.jarvis (the project's original codename);
+    // the installed app id is com.natestechstuff.orbit.
+    namespace "com.natestechstuff.jarvis"
+    compileSdk 34
+    ndkVersion "27.2.12479018"
+
+    defaultConfig {
+        applicationId "com.natestechstuff.orbit"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+
+        // On-device brain (llama.cpp) — 64-bit ARM phones only.
+        ndk { abiFilters "arm64-v8a" }
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared", "-DCMAKE_BUILD_TYPE=Release"
+                // ./gradlew assembleRelease -PllamaCppDir=/path/to/llama.cpp  (else third_party/ or auto-download)
+                if (project.hasProperty("llamaCppDir")) arguments "-DLLAMA_CPP_DIR=" + project.property("llamaCppDir")
+            }
+        }
+    }
+
+    buildFeatures { buildConfig true }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    packaging {
+        // ggml picks its fastest CPU backend .so at runtime from nativeLibraryDir, so libs must be extracted
+        jniLibs { useLegacyPackaging true }
+    }
+
+    buildTypes {
+        debug {
+            // native code is always optimized, even in the debug build
+            externalNativeBuild { cmake { arguments "-DCMAKE_BUILD_TYPE=Release" } }
+        }
+        release {
+            minifyEnabled false
+            // Signed with your local Android debug key so `assembleRelease` gives an installable APK out of the box.
+            // For a store release, add your own signingConfig with a release keystore (never commit the keystore).
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            // ./gradlew testDebugUnitTest -Pscreenshots=/some/dir  renders the UI to PNGs (Robolectric)
+            if (project.hasProperty("screenshots")) {
+                systemProperty "screenshots", project.property("screenshots")
+            }
+            // ./gradlew testDebugUnitTest -PrealServer=http://127.0.0.1:11434 [-PrealModel=qwen2.5:0.5b]  streams from a real Ollama
+            if (project.hasProperty("realServer")) {
+                systemProperty "realServer", project.property("realServer")
+                if (project.hasProperty("realModel")) systemProperty "realModel", project.property("realModel")
+            }
+            maxHeapSize = "1g"
+        }
+    }
+}
+
+dependencies {
+    // No AndroidX / no libraries in the app itself: everything is plain Android framework.
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.json:json:20231013"   // real org.json for local unit tests
+    testImplementation "org.robolectric:robolectric:4.13"   // renders the real UI in tests (screenshots)
+}

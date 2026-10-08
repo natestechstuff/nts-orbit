@@ -1,0 +1,23 @@
+# Gradle / Android Studio
+.gradle/
+build/
+app/build/
+.cxx/
+app/.cxx/
+local.properties
+.idea/
+*.iml
+captures/
+
+# build outputs and signing (never commit keystores)
+*.apk
+*.aab
+*.jks
+*.keystore
+*.p12
+
+# llama.cpp checkout if you vendor it locally (-PllamaCppDir or third_party/)
+third_party/
+
+# models are big: download the .gguf from Releases instead
+*.gguf

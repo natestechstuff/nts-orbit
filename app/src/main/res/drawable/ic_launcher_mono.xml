@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NTS Orbit mark, one colour, for Android 13+ themed icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.76" android:scaleY="0.76">
+        <group android:pivotX="54" android:pivotY="55" android:rotation="-24">
+            <path android:pathData="M21,55a33,11.5 0,1 0,66 0a33,11.5 0,1 0,-66 0" android:strokeColor="#ffffff" android:strokeAlpha="0.6" android:strokeWidth="3" />
+        </group>
+        <path android:pathData="M38,33h9l14,24.5V33h9v42h-9L47,50.5V75h-9z" android:fillColor="#ffffff" />
+        <group android:pivotX="54" android:pivotY="55" android:rotation="-24">
+            <clip-path android:pathData="M-20,55h150v60h-150z" />
+            <path android:pathData="M21,55a33,11.5 0,1 0,66 0a33,11.5 0,1 0,-66 0" android:strokeColor="#ffffff" android:strokeWidth="3.6" />
+            <path android:pathData="M76.9,61.9a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0" android:fillColor="#ffffff" />
+        </group>
+    </group>
+</vector>

@@ -1,0 +1,13 @@
+<resources>
+    <color name="paper">#111916</color>
+    <color name="cream">#1a2520</color>
+    <color name="line">#34443c</color>
+    <color name="ink">#e3ece6</color>
+    <color name="muted">#a1b0a8</color>
+    <color name="lime">#c9ec72</color>
+    <color name="teal">#55c5b1</color>
+    <color name="coral">#f48b70</color>
+    <color name="blue">#83aaff</color>
+    <color name="mark_bg">#e7f0ff</color>
+    <color name="mark_n">#2563eb</color>
+</resources>
