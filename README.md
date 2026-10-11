@@ -30,7 +30,7 @@ What it does **not** do: no texting, no SMS, no reading notifications or contact
 
 **Coming soon to Google Play.** Until then, you can install the APK directly:
 
-1. Go to **[Releases](../../releases)** and download the APK (`NTS-ORBIT-PUBLIC-1.0.0.apk`) on your phone.
+1. Go to **[Releases](../../releases)** and download the APK (`NTS-ORBIT-PUBLIC-1.1.0.apk`) on your phone.
 2. Open it and allow "install unknown apps" for your browser/files app when Android asks.
 3. Needs Android 8.0+ on a **64-bit ARM** phone (almost every phone from the last few years).
 
@@ -40,7 +40,7 @@ Package name: `com.natestechstuff.orbit`.
 
 For on-device mode you need a GGUF model file:
 
-1. Download the NTS Orbit model, `NTS-ORBIT-PUBLIC.gguf`, from the same **[Release](../../releases)** (about 1 GB, use Wi-Fi).
+1. Download the NTS Orbit model, `NTS-ORBIT-PUBLIC.gguf`, from the **[v1.0.0 Release](https://github.com/natestechstuff/nts-orbit/releases/tag/v1.0.0)** (about 1 GB, use Wi-Fi).
 2. In the app: **Settings → on-device model → pick .gguf file**, choose the download, then tap **▶ test**.
 
 Any other small chat GGUF works too (for example a Qwen2.5 1.5B/3B Instruct `Q4_K_M`). Bigger models need more RAM: 1.5B runs well on most phones with 6 GB+.
